@@ -226,7 +226,7 @@
           <div><div class="metric-sub">bridge intensity</div><div id="latticeBridge" style="font-size:16px; color:var(--text);">&mdash;</div></div>
           <div><div class="metric-sub">lattice defects</div><div id="latticeDefects" style="font-size:16px; color:var(--text);">&mdash;</div></div>
         </div>
-        <div class="metric-sub" id="latticeSub">requires multiple detected regions.</div>
+        <div class="metric-sub" id="latticeSub">requires multiple detected spots.</div>
       </div>
 
       <div class="divider"></div>
@@ -437,6 +437,9 @@
   const HISTORY_LEN = 4;          // rolling window (in detection ticks) used for turnover/flux consistency checks
   const MIN_WINDOWS_ALIVE = 5;    // minimum tracked lifetime (in detection ticks) before a match can be confirmed
   const DETECT_BLUR_RADIUS = 3;   // smoothing applied to a copy of the field before detection only (rendering stays crisp)
+  const LATTICE_BLUR_RADIUS = 1;  // preserve weak spot peaks that the structural detector intentionally smooths away
+  const LATTICE_PEAK_THRESHOLD = 0.12;
+  const LATTICE_PEAK_SEPARATION = 5;
 
   // Coarse-graining pass: a raw per-pixel threshold on the unsmoothed field can't tell a genuinely
   // held structure apart from turbulence, because at the single-pixel/single-window level they produce
@@ -511,6 +514,36 @@
       }
     }
     return blobs;
+  }
+
+  function detectLatticeSpots(){
+    const field = boxBlurField(V, LATTICE_BLUR_RADIUS);
+    const candidates = [];
+    for(let y=0;y<N;y++){
+      for(let x=0;x<N;x++){
+        const value = field[idx(x,y)];
+        if(value < LATTICE_PEAK_THRESHOLD) continue;
+        let isMaximum = true;
+        for(let dy=-2;dy<=2 && isMaximum;dy++){
+          for(let dx=-2;dx<=2;dx++){
+            if(dx===0 && dy===0) continue;
+            if(field[idx(x+dx,y+dy)] > value){
+              isMaximum = false;
+              break;
+            }
+          }
+        }
+        if(isMaximum) candidates.push({cx:x,cy:y,peak:value});
+      }
+    }
+    candidates.sort((a,b)=>b.peak-a.peak);
+    const spots = [];
+    for(const candidate of candidates){
+      if(spots.every(spot=>toroidalDistance(candidate.cx,candidate.cy,spot.cx,spot.cy) >= LATTICE_PEAK_SEPARATION)){
+        spots.push(candidate);
+      }
+    }
+    return spots;
   }
 
   function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
@@ -786,7 +819,7 @@
       latticeDefectsEl.textContent = '—';
       latticeSubEl.textContent = latticeMetrics.edges.length
         ? 'showing recently measured edges while detection re-stabilizes.'
-        : 'requires multiple detected regions.';
+        : 'requires multiple detected spots.';
       return;
     }
     latticeNeighborsEl.textContent = latticeMetrics.meanNeighbors.toFixed(1);
@@ -974,7 +1007,8 @@
     frame++;
     if(frame % 6 === 0){
       const blobs = detectStructures(frame);
-      latticeMetrics = measureLattice(blobs);
+      const latticeSpots = detectLatticeSpots();
+      latticeMetrics = measureLattice(latticeSpots);
       updateLatticePanel();
       const confirmed = updateTracking(frame, blobs);
       lastConfirmed = confirmed;

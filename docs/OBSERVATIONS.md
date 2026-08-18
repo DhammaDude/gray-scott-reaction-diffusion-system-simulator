@@ -26,7 +26,7 @@ This observation does not establish that the pattern is alive, directed, or cons
 
 ### Quantification now available
 
-The simulator now estimates this organization directly. Its lattice diagnostics report mean neighbors, a sixfold-order score, bridge intensity between neighboring spot centers, defect rate, and mean spacing. A measured-edge overlay can be toggled on or off, and a `0.5×` to `4×` zoom control makes the weak inter-spot field easier to inspect. Measured edges are matched across detection ticks and briefly faded rather than removed immediately when a spot splits, merges, or momentarily falls below threshold.
+The simulator now estimates this organization directly. Its lattice diagnostics use a separate lighter-blur local-peak detector and report mean neighbors, a sixfold-order score, bridge intensity between neighboring spot centers, defect rate, and mean spacing. A measured-edge overlay can be toggled on or off, and a `0.5×` to `4×` zoom control makes the weak inter-spot field easier to inspect. Measured edges are matched across detection ticks and briefly faded rather than removed immediately when a spot splits, merges, or momentarily falls below threshold.
 
 These values are operational measurements of the rendered Gray–Scott field, not evidence of literal bonds or a biological network. The edge threshold is derived from the median nearest-neighbor spacing, so the results should be compared across seeds and nearby parameter values rather than treated as universal constants.
 
