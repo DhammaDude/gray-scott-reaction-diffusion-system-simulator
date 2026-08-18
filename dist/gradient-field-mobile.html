@@ -100,6 +100,12 @@
   button:focus-visible{outline:2px solid var(--structure); outline-offset:2px;}
   .full{grid-column:1/-1;}
 
+  .pattern-vocab{border-top:1px solid var(--line); margin-top:14px; padding-top:14px;}
+  .vocab-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; margin-top:8px;}
+  .vocab-item{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .vocab-item b{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--structure);}
+  .vocab-item span{font-size:11px; line-height:1.35; color:var(--text-dim);}
+
   .reset-btn{border-color:rgba(255,106,61,.4); color:var(--hot);}
   .reset-btn:hover{border-color:var(--hot); background:rgba(255,106,61,.08);}
 
@@ -220,6 +226,18 @@
         <button data-preset="solitons">solitons</button>
         <button data-preset="chaos" class="full">turbulent (no stable structure)</button>
         <button id="reseed" class="reset-btn full">reseed field</button>
+      </div>
+
+      <div class="pattern-vocab" aria-label="Gray–Scott pattern vocabulary">
+        <div class="label">Pattern vocabulary</div>
+        <div class="vocab-grid">
+          <div class="vocab-item"><b>spots</b><span>localized spots</span></div>
+          <div class="vocab-item"><b>worms</b><span>worm-like or labyrinthine structures</span></div>
+          <div class="vocab-item"><b>mitosis</b><span>self-replicating spots</span></div>
+          <div class="vocab-item"><b>solitons</b><span>localized coherent structures</span></div>
+          <div class="vocab-item"><b>turbulent</b><span>spatiotemporal chaos</span></div>
+        </div>
+        <div class="metric-sub" style="margin-top:10px;">These names describe dynamical regimes, not biological identities.</div>
       </div>
     </div>
   </div>

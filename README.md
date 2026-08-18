@@ -34,6 +34,7 @@ An animation of blobs forming and calling it "emergence" would illustrate the pa
 ## Using it
 
 - **Presets** jump to known Gray-Scott parameter regimes: `spots` and `mitosis` are the ones worth watching first — mitosis in particular shows regions splitting, the closest this system gets to self-reproduction, an autocatalytic set spending gradient by making more of itself. `turbulent` dissipates the gradient just as fast but structurally resembles a hurricane, not a cell — watch the counter mostly stay at zero there.
+- **Pattern vocabulary** keeps the labels precise: `spots` are localized spots, `worms` are worm-like or labyrinthine structures, `mitosis` means self-replicating spots, `solitons` means localized coherent structures, and `turbulent` means spatiotemporal chaos. These are dynamical labels, not claims that the patterns are biological.
 - **Feed / kill sliders** let you hand-tune the underlying reaction parameters (`F`, `k` in the standard Gray-Scott formulation) if you want to hunt for regimes the presets don't cover.
 - **Reseed** restarts the field under the current parameters without changing them.
 
