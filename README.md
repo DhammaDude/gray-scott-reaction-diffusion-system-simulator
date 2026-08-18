@@ -40,7 +40,7 @@ An animation of blobs forming and calling it "emergence" would illustrate the pa
 ## Project structure
 
 ```
-gradient-field/
+gray-scott-reaction-diffusion-system-simulator/
 ├── README.md          this file
 ├── index.html          the simulator — self-contained, no build
 └── docs/

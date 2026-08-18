@@ -681,7 +681,7 @@
       sweepGrid: sweepGrid // null if no sweep has been run yet
     };
     const json = JSON.stringify(bundle, null, 2);
-    const filename = 'gradient-field-run-' + Date.now() + '.json';
+    const filename = 'gray-scott-reaction-diffusion-system-simulator-run-' + Date.now() + '.json';
     const structCount = Object.values(lifetimeLogs).reduce((n,l)=>n+l.length,0);
     const summary = structCount + ' logged structures' + (sweepGrid ? ' + phase-diagram grid' : '');
 
@@ -721,7 +721,7 @@
       try{
         const data = JSON.parse(reader.result);
         if(!data || typeof data !== 'object' || !data.lifetimeLogs){
-          throw new Error('file does not look like a gradient-field export (missing lifetimeLogs)');
+          throw new Error('file does not look like a Gray–Scott simulator export (missing lifetimeLogs)');
         }
         let added = 0;
         for(const key of Object.keys(lifetimeLogs)){
