@@ -178,7 +178,7 @@
       <label class="visual-test"><input type="checkbox" id="blackFieldToggle" checked> black field background (V-channel only)</label>
       <label class="visual-test"><input type="checkbox" id="showLatticeToggle"> show inferred neighbor links</label>
       <label class="visual-test"><input type="checkbox" id="showHexCellsToggle"> show inferred hexagonal cells</label>
-      <label class="zoom-control">zoom <input type="range" id="zoomSlider" min="0.5" max="4" step="0.25" value="1"><span class="v" id="zoomValue">1.00×</span></label>
+      <label class="zoom-control">field view <input type="range" id="zoomSlider" min="0.5" max="1" step="0.05" value="0.67"><span class="v" id="zoomValue">0.67×</span></label>
     </div>
 
     <div class="panel">
@@ -358,10 +358,11 @@
 
 <script>
 (function(){
-  const N = 128; // simulation grid resolution
+  const N = 192; // simulation grid resolution
+  const VIEW_SIZE = 128; // visible canvas resolution
   const canvas = document.getElementById('sim');
   const ctx = canvas.getContext('2d');
-  const imgData = ctx.createImageData(N, N);
+  const imgData = ctx.createImageData(VIEW_SIZE, VIEW_SIZE);
 
   let U = new Float32Array(N*N);
   let V = new Float32Array(N*N);
@@ -372,7 +373,7 @@
   let F = 0.0545, K = 0.0620;
   let blackFieldBackground = true;
   let showLatticeOverlay = false;
-  let zoom = 1;
+  let fieldView = 0.67;
   function emptyLatticeMetrics(){
     return {meanNeighbors:0, sixfoldOrder:0, bridgeIntensity:0, defectRate:0, spacing:0, edgeCount:0, edges:[], cells:[]};
   }
@@ -402,7 +403,8 @@
         }
       }
     }
-    const n = pattern==='chaos' ? 60 : (pattern==='solitons'?10:22);
+    const seedScale = (N/128)*(N/128);
+    const n = Math.round((pattern==='chaos' ? 60 : (pattern==='solitons'?10:22))*seedScale);
     for(let k=0;k<n;k++){
       blob(Math.random()*N|0, Math.random()*N|0, pattern==='chaos'?2: (2+Math.random()*3|0));
     }
@@ -789,24 +791,40 @@
     return confirmed;
   }
 
+  function getViewGeometry(){
+    const viewSize = N*fieldView;
+    return {
+      viewSize,
+      origin:(N-viewSize)/2,
+      worldPerPixel:viewSize/VIEW_SIZE,
+      pixelsPerWorld:VIEW_SIZE/viewSize
+    };
+  }
+
   function render(markedBlobs){
     const data = imgData.data;
-    for(let i=0;i<N*N;i++){
-      const u = U[i], v = V[i];
-      // base coloring: hot = high U (unspent gradient), cool = low U (dissipated)
-      const t = Math.max(0, Math.min(1, 1-u));
-      // hot rgb(255,106,61) -> cool rgb(42,111,176)
-      let r = blackFieldBackground ? 0 : 10 + (255-10)*Math.max(0,1-t*1.8);
-      let g = blackFieldBackground ? 0 : 13 + (111-13)*t;
-      let b = blackFieldBackground ? 0 : 18 + (176-18)*t;
-      if(v > 0.05){
-        const glow = Math.min(1, v*2.2);
-        r = r*(1-glow) + 232*glow*0.55;
-        g = g*(1-glow) + 196*glow*0.55;
-        b = b*(1-glow) + 104*glow*0.4;
+    const view = getViewGeometry();
+    for(let y=0;y<VIEW_SIZE;y++){
+      const worldY = view.origin + (y+0.5)*view.worldPerPixel;
+      for(let x=0;x<VIEW_SIZE;x++){
+        const worldX = view.origin + (x+0.5)*view.worldPerPixel;
+        const i = idx(Math.floor(worldX),Math.floor(worldY));
+        const u = U[i], v = V[i];
+        // base coloring: hot = high U (unspent gradient), cool = low U (dissipated)
+        const t = Math.max(0, Math.min(1, 1-u));
+        // hot rgb(255,106,61) -> cool rgb(42,111,176)
+        let r = blackFieldBackground ? 0 : 10 + (255-10)*Math.max(0,1-t*1.8);
+        let g = blackFieldBackground ? 0 : 13 + (111-13)*t;
+        let b = blackFieldBackground ? 0 : 18 + (176-18)*t;
+        if(v > 0.05){
+          const glow = Math.min(1, v*2.2);
+          r = r*(1-glow) + 232*glow*0.55;
+          g = g*(1-glow) + 196*glow*0.55;
+          b = b*(1-glow) + 104*glow*0.4;
+        }
+        const p = (y*VIEW_SIZE+x)*4;
+        data[p]=r; data[p+1]=g; data[p+2]=b; data[p+3]=255;
       }
-      const p = i*4;
-      data[p]=r; data[p+1]=g; data[p+2]=b; data[p+3]=255;
     }
     ctx.putImageData(imgData,0,0);
     if(showHexCellsOverlay && latticeMetrics.cells.length){
@@ -817,8 +835,8 @@
         ctx.globalAlpha = cell.opacity == null ? 1 : cell.opacity;
         ctx.beginPath();
         for(let vertex=0;vertex<cell.vertices.length;vertex++){
-          const x = cell.cx + cell.vertices[vertex].x;
-          const y = cell.cy + cell.vertices[vertex].y;
+          const x = (cell.cx + cell.vertices[vertex].x - view.origin)*view.pixelsPerWorld;
+          const y = (cell.cy + cell.vertices[vertex].y - view.origin)*view.pixelsPerWorld;
           if(vertex===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         }
         ctx.closePath();
@@ -834,8 +852,8 @@
         if(edge.crossesBoundary) continue;
         ctx.globalAlpha = edge.opacity == null ? 1 : edge.opacity;
         ctx.beginPath();
-        ctx.moveTo(edge.x1,edge.y1);
-        ctx.lineTo(edge.x2,edge.y2);
+        ctx.moveTo((edge.x1-view.origin)*view.pixelsPerWorld,(edge.y1-view.origin)*view.pixelsPerWorld);
+        ctx.lineTo((edge.x2-view.origin)*view.pixelsPerWorld,(edge.y2-view.origin)*view.pixelsPerWorld);
         ctx.stroke();
       }
       ctx.restore();
@@ -845,9 +863,9 @@
     for(const bl of markedBlobs){
       ctx.strokeStyle = 'rgba(232,196,104,0.9)';
       ctx.lineWidth = 1.2;
-      const r = Math.max(4, Math.sqrt(bl.area/Math.PI)+2);
+      const r = Math.max(4, Math.sqrt(bl.area/Math.PI)+2)*view.pixelsPerWorld;
       ctx.beginPath();
-      ctx.arc(bl.cx, bl.cy, r, 0, Math.PI*2);
+      ctx.arc((bl.cx-view.origin)*view.pixelsPerWorld,(bl.cy-view.origin)*view.pixelsPerWorld,r,0,Math.PI*2);
       ctx.stroke();
     }
     ctx.restore();
@@ -1111,11 +1129,9 @@
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomValue = document.getElementById('zoomValue');
   zoomSlider.addEventListener('input', ()=>{
-    zoom = parseFloat(zoomSlider.value);
-    zoomValue.textContent = zoom.toFixed(2) + '×';
-    canvas.style.transform = 'scale(' + zoom + ')';
-    canvas.style.transformOrigin = 'top left';
-    canvas.style.marginBottom = (canvas.height * Math.max(zoom-1,0)) + 'px';
+    fieldView = parseFloat(zoomSlider.value);
+    zoomValue.textContent = fieldView.toFixed(2) + '×';
+    render(lastConfirmed);
   });
   fSlider.addEventListener('input', ()=>{ F=parseFloat(fSlider.value); fVal.textContent=F.toFixed(4); clearActivePreset(); });
   kSlider.addEventListener('input', ()=>{ K=parseFloat(kSlider.value); kVal.textContent=K.toFixed(4); clearActivePreset(); });
