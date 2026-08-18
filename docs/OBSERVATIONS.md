@@ -30,6 +30,12 @@ The simulator now estimates this organization directly. Its lattice diagnostics 
 
 These values are operational measurements of the rendered Gray–Scott field, not evidence of literal bonds or a biological network. The edge threshold is derived from the median nearest-neighbor spacing, so the results should be compared across seeds and nearby parameter values rather than treated as universal constants.
 
+### Visual inference reproduced by the app
+
+With the measured-edge overlay enabled, the simulator draws links between the detected spot centers. These links reproduce the regular organization initially inferred by eye: each spot is typically situated within a six-neighbor, triangularly packed arrangement. The visual impression and the operational measurement therefore converge on the same spatial pattern.
+
+This is a confirmation of reproducible spatial organization, not a claim that the blue overlay lines are literal chemical bonds. They are computed links based on detected peak positions, local spacing, and the inferred neighborhood structure.
+
 ### Tests to add
 
 - Render the raw `V` channel in grayscale with no glow, color blending, or interpolation.
