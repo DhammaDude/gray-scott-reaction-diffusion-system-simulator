@@ -32,9 +32,11 @@ These values are operational measurements of the rendered Gray–Scott field, no
 
 ### Visual inference reproduced by the app
 
-With the measured-edge overlay enabled, the simulator draws links between the detected spot centers. These links reproduce the regular organization initially inferred by eye: each spot is typically situated within a six-neighbor, triangularly packed arrangement. The visual impression and the operational measurement therefore converge on the same spatial pattern.
+With the `show inferred neighbor links` overlay enabled, the simulator draws links between the detected spot centers. These links reproduce the regular organization initially inferred by eye: each spot is typically situated within a six-neighbor, triangularly packed arrangement. The visual impression and the operational measurement therefore converge on the same spatial pattern.
 
-This is a confirmation of reproducible spatial organization, not a claim that the blue overlay lines are literal chemical bonds. They are computed links based on detected peak positions, local spacing, and the inferred neighborhood structure.
+The simulator also provides a separate `show inferred hexagonal cells` overlay. This draws a regular hexagonal cell around each detected spot using the measured neighbor spacing, testing the possibility that the eye is registering an organization of the low-concentration space between spots rather than literal links between the bright centers.
+
+These overlays represent different hypotheses: center links describe the spot geometry, while hexagonal cells describe a possible organization of the intervening or negative space. Neither is a claim that the colored overlay lines are literal chemical bonds. They are computed structures based on detected peak positions, local spacing, and inferred neighborhood geometry.
 
 ### Tests to add
 
