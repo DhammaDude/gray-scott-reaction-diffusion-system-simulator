@@ -135,6 +135,8 @@
   .legend{display:flex; gap:22px; margin-top:10px; flex-wrap:wrap;}
   .legend .li{display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);}
   .legend .sw{width:10px;height:10px;border-radius:2px;flex:none;}
+  .visual-test{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:10px; color:var(--text-dim);}
+  .visual-test input{accent-color:var(--structure); margin:0;}
 
   .modal-overlay{
     display:none; position:fixed; inset:0; background:rgba(10,13,18,.82);
@@ -170,6 +172,7 @@
         <div class="li"><span class="sw" style="background:var(--cool)"></span>dissipated / relaxed</div>
         <div class="li"><span class="sw" style="background:var(--structure)"></span>candidate structure</div>
       </div>
+      <label class="visual-test"><input type="checkbox" id="blackFieldToggle" checked> black field background (V-channel only)</label>
     </div>
 
     <div class="panel">
@@ -346,6 +349,7 @@
 
   const dU = 0.16, dV = 0.08;
   let F = 0.0545, K = 0.0620;
+  let blackFieldBackground = true;
 
   function idx(x,y){
     x = (x+N)%N; y = (y+N)%N;
@@ -557,9 +561,9 @@
       // base coloring: hot = high U (unspent gradient), cool = low U (dissipated)
       const t = Math.max(0, Math.min(1, 1-u));
       // hot rgb(255,106,61) -> cool rgb(42,111,176)
-      let r = 10 + (255-10)*Math.max(0,1-t*1.8);
-      let g = 13 + (111-13)*t;
-      let b = 18 + (176-18)*t;
+      let r = blackFieldBackground ? 0 : 10 + (255-10)*Math.max(0,1-t*1.8);
+      let g = blackFieldBackground ? 0 : 13 + (111-13)*t;
+      let b = blackFieldBackground ? 0 : 18 + (176-18)*t;
       if(v > 0.05){
         const glow = Math.min(1, v*2.2);
         r = r*(1-glow) + 232*glow*0.55;
@@ -797,6 +801,11 @@
   const kSlider = document.getElementById('kSlider');
   const fVal = document.getElementById('fVal');
   const kVal = document.getElementById('kVal');
+  const blackFieldToggle = document.getElementById('blackFieldToggle');
+  blackFieldToggle.addEventListener('change', ()=>{
+    blackFieldBackground = blackFieldToggle.checked;
+    render(lastConfirmed);
+  });
   fSlider.addEventListener('input', ()=>{ F=parseFloat(fSlider.value); fVal.textContent=F.toFixed(4); clearActivePreset(); });
   kSlider.addEventListener('input', ()=>{ K=parseFloat(kSlider.value); kVal.textContent=K.toFixed(4); clearActivePreset(); });
 
