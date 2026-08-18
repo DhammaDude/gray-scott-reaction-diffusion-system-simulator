@@ -137,6 +137,9 @@
   .legend .sw{width:10px;height:10px;border-radius:2px;flex:none;}
   .visual-test{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:10px; color:var(--text-dim);}
   .visual-test input{accent-color:var(--structure); margin:0;}
+  .zoom-control{display:flex; align-items:center; gap:10px; margin-top:12px; font-size:10px; color:var(--text-dim);}
+  .zoom-control input{flex:1; accent-color:var(--structure);}
+  .zoom-control .v{min-width:42px; text-align:right; color:var(--text); font-family:'JetBrains Mono',monospace;}
 
   .modal-overlay{
     display:none; position:fixed; inset:0; background:rgba(10,13,18,.82);
@@ -173,6 +176,8 @@
         <div class="li"><span class="sw" style="background:var(--structure)"></span>candidate structure</div>
       </div>
       <label class="visual-test"><input type="checkbox" id="blackFieldToggle" checked> black field background (V-channel only)</label>
+      <label class="visual-test"><input type="checkbox" id="showLatticeToggle" checked> show measured lattice edges</label>
+      <label class="zoom-control">zoom <input type="range" id="zoomSlider" min="0.5" max="4" step="0.25" value="1"><span class="v" id="zoomValue">1.00×</span></label>
     </div>
 
     <div class="panel">
@@ -211,6 +216,21 @@
           <div><div class="metric-sub">mean turnover (confirmed)</div><div id="turnoverLevel" style="font-size:16px; color:var(--text);">&mdash;</div></div>
           <div><div class="metric-sub">mean boundary flux (confirmed)</div><div id="fluxLevel" style="font-size:16px; color:var(--text);">&mdash;</div></div>
         </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="metric-block">
+        <div class="label">Lattice diagnostics</div>
+        <div style="display:flex; gap:18px; margin-top:6px; flex-wrap:wrap;">
+          <div><div class="metric-sub">mean neighbors</div><div id="latticeNeighbors" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+          <div><div class="metric-sub">sixfold order</div><div id="latticeOrder" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+        </div>
+        <div style="display:flex; gap:18px; margin-top:10px; flex-wrap:wrap;">
+          <div><div class="metric-sub">bridge intensity</div><div id="latticeBridge" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+          <div><div class="metric-sub">lattice defects</div><div id="latticeDefects" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+        </div>
+        <div class="metric-sub" id="latticeSub">requires multiple detected regions.</div>
       </div>
 
       <div class="divider"></div>
@@ -350,6 +370,12 @@
   const dU = 0.16, dV = 0.08;
   let F = 0.0545, K = 0.0620;
   let blackFieldBackground = true;
+  let showLatticeOverlay = true;
+  let zoom = 1;
+  function emptyLatticeMetrics(){
+    return {meanNeighbors:0, sixfoldOrder:0, bridgeIntensity:0, defectRate:0, spacing:0, edgeCount:0, edges:[]};
+  }
+  let latticeMetrics = emptyLatticeMetrics();
 
   function idx(x,y){
     x = (x+N)%N; y = (y+N)%N;
@@ -359,6 +385,7 @@
   function seedField(pattern){
     finalizeAllTracked(); // flush any in-progress structures into the outgoing preset's lifetime log
     currentPresetKey = pattern;
+    latticeMetrics = emptyLatticeMetrics();
     for(let i=0;i<N*N;i++){ U[i]=1; V[i]=0; }
     function blob(cx,cy,r){
       for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){
@@ -488,6 +515,98 @@
 
   function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
 
+  function median(arr){
+    if(!arr.length) return 0;
+    const sorted = [...arr].sort((a,b)=>a-b);
+    const middle = Math.floor(sorted.length/2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle-1] + sorted[middle]) / 2;
+  }
+
+  function measureLattice(blobs){
+    if(blobs.length < 2) return emptyLatticeMetrics();
+    const nearestDistances = [];
+    for(let i=0;i<blobs.length;i++){
+      let nearest = Infinity;
+      for(let j=0;j<blobs.length;j++){
+        if(i===j) continue;
+        let dx = blobs[j].cx - blobs[i].cx;
+        let dy = blobs[j].cy - blobs[i].cy;
+        if(Math.abs(dx) > N/2) dx += dx > 0 ? -N : N;
+        if(Math.abs(dy) > N/2) dy += dy > 0 ? -N : N;
+        nearest = Math.min(nearest, Math.hypot(dx,dy));
+      }
+      if(Number.isFinite(nearest)) nearestDistances.push(nearest);
+    }
+    const spacing = median(nearestDistances);
+    if(!spacing) return emptyLatticeMetrics();
+    const cutoff = spacing * 1.4;
+    const neighbors = Array.from({length:blobs.length},()=>[]);
+    const edges = [];
+    for(let i=0;i<blobs.length;i++){
+      for(let j=i+1;j<blobs.length;j++){
+        const rawDx = blobs[j].cx - blobs[i].cx;
+        const rawDy = blobs[j].cy - blobs[i].cy;
+        let dx = rawDx;
+        let dy = rawDy;
+        if(Math.abs(dx) > N/2) dx += dx > 0 ? -N : N;
+        if(Math.abs(dy) > N/2) dy += dy > 0 ? -N : N;
+        const distance = Math.hypot(dx,dy);
+        if(distance <= cutoff){
+          neighbors[i].push({dx,dy});
+          neighbors[j].push({dx:-dx,dy:-dy});
+          edges.push({
+            x1:blobs[i].cx, y1:blobs[i].cy,
+            x2:blobs[j].cx, y2:blobs[j].cy,
+            crossesBoundary:Math.abs(rawDx)>N/2 || Math.abs(rawDy)>N/2
+          });
+        }
+      }
+    }
+    if(!edges.length) return {...emptyLatticeMetrics(), spacing};
+    const orders = [];
+    let defectCount = 0;
+    for(const localNeighbors of neighbors){
+      if(localNeighbors.length !== 6) defectCount++;
+      if(localNeighbors.length >= 3){
+        let real = 0;
+        let imaginary = 0;
+        for(const neighbor of localNeighbors){
+          const angle = Math.atan2(neighbor.dy, neighbor.dx);
+          real += Math.cos(6*angle);
+          imaginary += Math.sin(6*angle);
+        }
+        orders.push(Math.hypot(real,imaginary) / localNeighbors.length);
+      }
+    }
+    let bridgeTotal = 0;
+    let spotTotal = 0;
+    for(const edge of edges){
+      const startValue = V[idx(Math.round(edge.x1),Math.round(edge.y1))];
+      const endValue = V[idx(Math.round(edge.x2),Math.round(edge.y2))];
+      let dx = edge.x2 - edge.x1;
+      let dy = edge.y2 - edge.y1;
+      if(Math.abs(dx) > N/2) dx += dx > 0 ? -N : N;
+      if(Math.abs(dy) > N/2) dy += dy > 0 ? -N : N;
+      let bridge = 0;
+      for(let sample=1;sample<8;sample++){
+        const x = Math.round(edge.x1 + dx * sample/8);
+        const y = Math.round(edge.y1 + dy * sample/8);
+        bridge += V[idx(x,y)];
+      }
+      bridgeTotal += bridge/7;
+      spotTotal += (startValue + endValue)/2;
+    }
+    return {
+      meanNeighbors: avg(neighbors.map(localNeighbors=>localNeighbors.length)),
+      sixfoldOrder: avg(orders),
+      bridgeIntensity: spotTotal ? bridgeTotal/spotTotal : 0,
+      defectRate: defectCount/neighbors.length,
+      spacing,
+      edgeCount: edges.length,
+      edges
+    };
+  }
+
   // persistent structure identity across detection ticks
   let trackedStructures = new Map(); // id -> {cx,cy,area,cellsSet,windowsAlive,bornFrame,turnoverHistory,fluxHistory,meanTurnover,meanFlux}
   let nextTrackId = 1;
@@ -574,6 +693,19 @@
       data[p]=r; data[p+1]=g; data[p+2]=b; data[p+3]=255;
     }
     ctx.putImageData(imgData,0,0);
+    if(showLatticeOverlay && latticeMetrics.edges.length){
+      ctx.save();
+      ctx.strokeStyle = 'rgba(124,180,230,0.45)';
+      ctx.lineWidth = 0.55;
+      for(const edge of latticeMetrics.edges){
+        if(edge.crossesBoundary) continue;
+        ctx.beginPath();
+        ctx.moveTo(edge.x1,edge.y1);
+        ctx.lineTo(edge.x2,edge.y2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     // overlay markers for confirmed structures
     ctx.save();
     for(const bl of markedBlobs){
@@ -594,6 +726,27 @@
   const energyEl = document.getElementById('energyLevel');
   const turnoverEl = document.getElementById('turnoverLevel');
   const fluxEl = document.getElementById('fluxLevel');
+  const latticeNeighborsEl = document.getElementById('latticeNeighbors');
+  const latticeOrderEl = document.getElementById('latticeOrder');
+  const latticeBridgeEl = document.getElementById('latticeBridge');
+  const latticeDefectsEl = document.getElementById('latticeDefects');
+  const latticeSubEl = document.getElementById('latticeSub');
+
+  function updateLatticePanel(){
+    if(!latticeMetrics.edgeCount){
+      latticeNeighborsEl.textContent = '—';
+      latticeOrderEl.textContent = '—';
+      latticeBridgeEl.textContent = '—';
+      latticeDefectsEl.textContent = '—';
+      latticeSubEl.textContent = 'requires multiple detected regions.';
+      return;
+    }
+    latticeNeighborsEl.textContent = latticeMetrics.meanNeighbors.toFixed(1);
+    latticeOrderEl.textContent = latticeMetrics.sixfoldOrder.toFixed(2);
+    latticeBridgeEl.textContent = (latticeMetrics.bridgeIntensity*100).toFixed(1) + '%';
+    latticeDefectsEl.textContent = (latticeMetrics.defectRate*100).toFixed(1) + '%';
+    latticeSubEl.textContent = latticeMetrics.edgeCount + ' measured neighbor edges; mean spacing ' + latticeMetrics.spacing.toFixed(1) + ' px.';
+  }
 
   function updateCaption(count){
     captionEl.classList.toggle('live', count>0);
@@ -773,6 +926,8 @@
     frame++;
     if(frame % 6 === 0){
       const blobs = detectStructures(frame);
+      latticeMetrics = measureLattice(blobs);
+      updateLatticePanel();
       const confirmed = updateTracking(frame, blobs);
       lastConfirmed = confirmed;
       structCountEl.textContent = confirmed.length;
@@ -805,6 +960,20 @@
   blackFieldToggle.addEventListener('change', ()=>{
     blackFieldBackground = blackFieldToggle.checked;
     render(lastConfirmed);
+  });
+  const showLatticeToggle = document.getElementById('showLatticeToggle');
+  showLatticeToggle.addEventListener('change', ()=>{
+    showLatticeOverlay = showLatticeToggle.checked;
+    render(lastConfirmed);
+  });
+  const zoomSlider = document.getElementById('zoomSlider');
+  const zoomValue = document.getElementById('zoomValue');
+  zoomSlider.addEventListener('input', ()=>{
+    zoom = parseFloat(zoomSlider.value);
+    zoomValue.textContent = zoom.toFixed(2) + '×';
+    canvas.style.transform = 'scale(' + zoom + ')';
+    canvas.style.transformOrigin = 'top left';
+    canvas.style.marginBottom = (canvas.height * Math.max(zoom-1,0)) + 'px';
   });
   fSlider.addEventListener('input', ()=>{ F=parseFloat(fSlider.value); fVal.textContent=F.toFixed(4); clearActivePreset(); });
   kSlider.addEventListener('input', ()=>{ K=parseFloat(kSlider.value); kVal.textContent=K.toFixed(4); clearActivePreset(); });

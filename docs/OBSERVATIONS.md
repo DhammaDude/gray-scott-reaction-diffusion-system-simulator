@@ -24,6 +24,12 @@ The current detector identifies stronger connected regions above its concentrati
 
 This observation does not establish that the pattern is alive, directed, or conscious. It identifies a potentially important form of spatial organization that the current detector does not measure.
 
+### Quantification now available
+
+The simulator now estimates this organization directly. Its lattice diagnostics report mean neighbors, a sixfold-order score, bridge intensity between neighboring spot centers, defect rate, and mean spacing. A measured-edge overlay can be toggled on or off, and a `0.5×` to `4×` zoom control makes the weak inter-spot field easier to inspect.
+
+These values are operational measurements of the rendered Gray–Scott field, not evidence of literal bonds or a biological network. The edge threshold is derived from the median nearest-neighbor spacing, so the results should be compared across seeds and nearby parameter values rather than treated as universal constants.
+
 ### Tests to add
 
 - Render the raw `V` channel in grayscale with no glow, color blending, or interpolation.
