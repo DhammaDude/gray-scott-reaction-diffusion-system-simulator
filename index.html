@@ -376,6 +376,9 @@
     return {meanNeighbors:0, sixfoldOrder:0, bridgeIntensity:0, defectRate:0, spacing:0, edgeCount:0, edges:[]};
   }
   let latticeMetrics = emptyLatticeMetrics();
+  let latticeEdgeMemory = [];
+  const LATTICE_EDGE_MATCH_DISTANCE = 12;
+  const LATTICE_EDGE_GRACE = 4;
 
   function idx(x,y){
     x = (x+N)%N; y = (y+N)%N;
@@ -386,6 +389,7 @@
     finalizeAllTracked(); // flush any in-progress structures into the outgoing preset's lifetime log
     currentPresetKey = pattern;
     latticeMetrics = emptyLatticeMetrics();
+    latticeEdgeMemory = [];
     for(let i=0;i<N*N;i++){ U[i]=1; V[i]=0; }
     function blob(cx,cy,r){
       for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){
@@ -522,8 +526,53 @@
     return sorted.length % 2 ? sorted[middle] : (sorted[middle-1] + sorted[middle]) / 2;
   }
 
+  function toroidalDistance(x1,y1,x2,y2){
+    let dx = x2-x1;
+    let dy = y2-y1;
+    if(Math.abs(dx) > N/2) dx += dx > 0 ? -N : N;
+    if(Math.abs(dy) > N/2) dy += dy > 0 ? -N : N;
+    return Math.hypot(dx,dy);
+  }
+
+  function edgeMatchDistance(current, previous){
+    const direct = (toroidalDistance(current.x1,current.y1,previous.x1,previous.y1) + toroidalDistance(current.x2,current.y2,previous.x2,previous.y2)) / 2;
+    const reverse = (toroidalDistance(current.x1,current.y1,previous.x2,previous.y2) + toroidalDistance(current.x2,current.y2,previous.x1,previous.y1)) / 2;
+    return Math.min(direct,reverse);
+  }
+
+  function persistLatticeEdges(currentEdges){
+    const matched = new Set();
+    const nextMemory = [];
+    for(const current of currentEdges){
+      let bestIndex = -1;
+      let bestDistance = Infinity;
+      for(let i=0;i<latticeEdgeMemory.length;i++){
+        if(matched.has(i)) continue;
+        const distance = edgeMatchDistance(current,latticeEdgeMemory[i]);
+        if(distance < bestDistance){
+          bestDistance = distance;
+          bestIndex = i;
+        }
+      }
+      if(bestIndex >= 0 && bestDistance <= LATTICE_EDGE_MATCH_DISTANCE){
+        matched.add(bestIndex);
+        nextMemory.push({...latticeEdgeMemory[bestIndex], ...current, missed:0});
+      } else {
+        nextMemory.push({...current, missed:0});
+      }
+    }
+    for(let i=0;i<latticeEdgeMemory.length;i++){
+      if(matched.has(i)) continue;
+      const previous = latticeEdgeMemory[i];
+      const missed = previous.missed + 1;
+      if(missed <= LATTICE_EDGE_GRACE) nextMemory.push({...previous, missed});
+    }
+    latticeEdgeMemory = nextMemory;
+    return nextMemory.map(edge=>({...edge, opacity:Math.max(0,1-edge.missed/(LATTICE_EDGE_GRACE+1))}));
+  }
+
   function measureLattice(blobs){
-    if(blobs.length < 2) return emptyLatticeMetrics();
+    if(blobs.length < 2) return {...emptyLatticeMetrics(), edges:persistLatticeEdges([])};
     const nearestDistances = [];
     for(let i=0;i<blobs.length;i++){
       let nearest = Infinity;
@@ -538,7 +587,7 @@
       if(Number.isFinite(nearest)) nearestDistances.push(nearest);
     }
     const spacing = median(nearestDistances);
-    if(!spacing) return emptyLatticeMetrics();
+    if(!spacing) return {...emptyLatticeMetrics(), edges:persistLatticeEdges([])};
     const cutoff = spacing * 1.4;
     const neighbors = Array.from({length:blobs.length},()=>[]);
     const edges = [];
@@ -562,7 +611,7 @@
         }
       }
     }
-    if(!edges.length) return {...emptyLatticeMetrics(), spacing};
+    if(!edges.length) return {...emptyLatticeMetrics(), spacing, edges:persistLatticeEdges([])};
     const orders = [];
     let defectCount = 0;
     for(const localNeighbors of neighbors){
@@ -603,7 +652,7 @@
       defectRate: defectCount/neighbors.length,
       spacing,
       edgeCount: edges.length,
-      edges
+      edges:persistLatticeEdges(edges)
     };
   }
 
@@ -699,6 +748,7 @@
       ctx.lineWidth = 0.55;
       for(const edge of latticeMetrics.edges){
         if(edge.crossesBoundary) continue;
+        ctx.globalAlpha = edge.opacity == null ? 1 : edge.opacity;
         ctx.beginPath();
         ctx.moveTo(edge.x1,edge.y1);
         ctx.lineTo(edge.x2,edge.y2);
@@ -738,14 +788,16 @@
       latticeOrderEl.textContent = '—';
       latticeBridgeEl.textContent = '—';
       latticeDefectsEl.textContent = '—';
-      latticeSubEl.textContent = 'requires multiple detected regions.';
+      latticeSubEl.textContent = latticeMetrics.edges.length
+        ? 'showing recently measured edges while detection re-stabilizes.'
+        : 'requires multiple detected regions.';
       return;
     }
     latticeNeighborsEl.textContent = latticeMetrics.meanNeighbors.toFixed(1);
     latticeOrderEl.textContent = latticeMetrics.sixfoldOrder.toFixed(2);
     latticeBridgeEl.textContent = (latticeMetrics.bridgeIntensity*100).toFixed(1) + '%';
     latticeDefectsEl.textContent = (latticeMetrics.defectRate*100).toFixed(1) + '%';
-    latticeSubEl.textContent = latticeMetrics.edgeCount + ' measured neighbor edges; mean spacing ' + latticeMetrics.spacing.toFixed(1) + ' px.';
+    latticeSubEl.textContent = latticeMetrics.edgeCount + ' current neighbor edges; mean spacing ' + latticeMetrics.spacing.toFixed(1) + ' px.';
   }
 
   function updateCaption(count){
