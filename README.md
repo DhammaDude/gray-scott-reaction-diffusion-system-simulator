@@ -45,9 +45,10 @@ gray-scott-reaction-diffusion-system-simulator/
 ├── README.md          this file
 ├── index.html          the simulator — self-contained, no build
 └── docs/
+    ├── OBSERVATIONS.md  working notes from running the simulator
     └── VISION.md        where this project could go next
 ```
 
 ## Relationship to the paper
 
-This is a companion artifact, not a replacement for the paper's argument. Read `docs/VISION.md` for how the two might grow together.
+This is a companion artifact, not a replacement for the paper's argument. Read [`docs/OBSERVATIONS.md`](./docs/OBSERVATIONS.md) for running observations and [`docs/VISION.md`](./docs/VISION.md) for how the project might grow.
