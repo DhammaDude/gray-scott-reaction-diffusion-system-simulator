@@ -38,6 +38,12 @@ The simulator also provides a separate `show inferred hexagonal cells` overlay. 
 
 These overlays represent different hypotheses: center links describe the spot geometry, while hexagonal cells describe a possible organization of the intervening or negative space. Neither is a claim that the colored overlay lines are literal chemical bonds. They are computed structures based on detected peak positions, local spacing, and inferred neighborhood geometry.
 
+### Center links versus cell structure
+
+The first overlay did not reproduce the faint lines seen directly in the raw field. It connected spot centers correctly, but it represented the lattice as a network of links rather than as the honeycomb-like organization perceived by eye. This difference was informative: the visual pattern may belong to the intervening or low-concentration space rather than to the bright spot centers.
+
+The cell overlay was therefore revised to use the same detected spot centers and neighbor vectors as the link overlay. It now constructs each local polygon from the perpendicular bisectors between a spot and its measured neighbors. In the mitosis equilibrium, six-neighbor regions produce the expected hexagonal cells without imposing a fixed global hexagon. Both overlays are kept off by default so the raw field can be inspected first, then each interpretation can be tested independently.
+
 ### Tests to add
 
 - Render the raw `V` channel in grayscale with no glow, color blending, or interpolation.
