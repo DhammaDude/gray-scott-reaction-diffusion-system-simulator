@@ -606,27 +606,35 @@
     return nextMemory.map(edge=>({...edge, opacity:Math.max(0,1-edge.missed/(LATTICE_EDGE_GRACE+1))}));
   }
 
-  function buildHexCells(spots, neighbors, spacing){
-    let orientationReal = 0;
-    let orientationImaginary = 0;
-    for(const localNeighbors of neighbors){
-      for(const neighbor of localNeighbors){
-        const angle = Math.atan2(neighbor.dy, neighbor.dx);
-        orientationReal += Math.cos(6*angle);
-        orientationImaginary += Math.sin(6*angle);
+  function buildVoronoiCells(spots, neighbors){
+    const cells = [];
+    for(let index=0;index<spots.length;index++){
+      const localNeighbors = neighbors[index];
+      if(localNeighbors.length < 3) continue;
+      const sortedNeighbors = [...localNeighbors].sort((a,b)=>Math.atan2(a.dy,a.dx)-Math.atan2(b.dy,b.dx));
+      const vertices = [];
+      for(let i=0;i<sortedNeighbors.length;i++){
+        const first = sortedNeighbors[i];
+        const second = sortedNeighbors[(i+1)%sortedNeighbors.length];
+        const determinant = first.dx*second.dy - first.dy*second.dx;
+        if(Math.abs(determinant) < 1e-6) continue;
+        const firstHalf = (first.dx*first.dx + first.dy*first.dy)/2;
+        const secondHalf = (second.dx*second.dx + second.dy*second.dy)/2;
+        vertices.push({
+          x:(firstHalf*second.dy - first.dy*secondHalf)/determinant,
+          y:(first.dx*secondHalf - firstHalf*second.dx)/determinant
+        });
+      }
+      if(vertices.length >= 3){
+        cells.push({
+          cx:spots[index].cx,
+          cy:spots[index].cy,
+          vertices,
+          opacity:Math.min(1,localNeighbors.length/6)
+        });
       }
     }
-    const orientation = (orientationReal || orientationImaginary)
-      ? Math.atan2(orientationImaginary, orientationReal)/6 + Math.PI/6
-      : Math.PI/6;
-    const radius = spacing/Math.sqrt(3);
-    return spots.map((spot,index)=>({
-      cx:spot.cx,
-      cy:spot.cy,
-      radius,
-      angle:orientation,
-      opacity:neighbors[index].length >= 3 ? 1 : 0.4
-    }));
+    return cells;
   }
 
   function measureLattice(blobs){
@@ -711,7 +719,7 @@
       spacing,
       edgeCount: edges.length,
       edges:persistLatticeEdges(edges),
-      cells:buildHexCells(blobs, neighbors, spacing)
+      cells:buildVoronoiCells(blobs, neighbors)
     };
   }
 
@@ -808,11 +816,10 @@
       for(const cell of latticeMetrics.cells){
         ctx.globalAlpha = cell.opacity == null ? 1 : cell.opacity;
         ctx.beginPath();
-        for(let side=0;side<6;side++){
-          const angle = cell.angle + side*Math.PI/3;
-          const x = cell.cx + cell.radius*Math.cos(angle);
-          const y = cell.cy + cell.radius*Math.sin(angle);
-          if(side===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+        for(let vertex=0;vertex<cell.vertices.length;vertex++){
+          const x = cell.cx + cell.vertices[vertex].x;
+          const y = cell.cy + cell.vertices[vertex].y;
+          if(vertex===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
         }
         ctx.closePath();
         ctx.stroke();
