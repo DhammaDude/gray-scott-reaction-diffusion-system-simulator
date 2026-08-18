@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gray–Scott Reaction–Diffusion System Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void: #0a0d12;
+    --void-2: #10151d;
+    --hot: #ff6a3d;
+    --cool: #2a6fb0;
+    --structure: #e8c468;
+    --line: #263241;
+    --text: #d7dde5;
+    --text-dim: #7c8797;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--void);color:var(--text);font-family:'JetBrains Mono',monospace;}
+  ::selection{background:var(--structure);color:var(--void);}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 24px 80px;}
+
+  header{margin-bottom:36px;}
+  .eyebrow{
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--text-dim); margin-bottom:14px; display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--structure);
+    box-shadow:0 0 8px var(--structure); flex:none;}
+  h1{
+    font-family:'Newsreader', serif; font-weight:500; font-style:italic;
+    font-size:clamp(28px,4vw,42px); line-height:1.15; margin:0 0 16px;
+    color:#f2ede2; max-width:780px;
+  }
+  .lede{
+    font-family:'Newsreader', serif; font-size:16px; line-height:1.65; color:var(--text-dim);
+    max-width:640px; font-weight:400;
+  }
+  .lede b{color:var(--text); font-weight:500;}
+
+  .stage{
+    display:grid; grid-template-columns: 1fr 300px; gap:1px;
+    background:var(--line); border:1px solid var(--line); margin-top:36px;
+  }
+  @media (max-width:860px){ .stage{grid-template-columns:1fr;} }
+
+  .tabgroup-nav{display:none;}
+  @media (max-width:860px){
+    .tabgroup-nav{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:20px;}
+    .tab-panel{display:none;}
+    .tab-panel.active{display:grid;}
+  }
+
+  .canvas-pane{background:var(--void-2); padding:18px; position:relative;}
+  canvas{width:100%; height:auto; display:block; image-rendering:auto; background:#000;}
+  .canvas-caption{
+    margin-top:14px; font-family:'Newsreader',serif; font-style:italic; font-size:15px;
+    color:var(--text-dim); min-height:22px; transition:color .4s ease;
+  }
+  .canvas-caption.live{color:var(--structure);}
+
+  .panel{background:var(--void-2); padding:20px; display:flex; flex-direction:column; gap:22px;}
+
+  .metric-block .label{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); margin-bottom:6px;}
+  .metric-big{font-size:34px; font-weight:700; color:var(--structure); line-height:1; font-variant-numeric:tabular-nums;}
+  .metric-sub{font-size:11px; color:var(--text-dim); margin-top:4px;}
+
+  .divider{height:1px; background:var(--line);}
+
+  .criterion{font-size:12px; line-height:1.6; color:var(--text-dim);}
+  .criterion .row{display:flex; gap:8px; margin-bottom:8px; align-items:baseline;}
+  .criterion .tag{
+    flex:none; width:18px; height:18px; border-radius:3px; display:flex; align-items:center;
+    justify-content:center; font-size:10px; font-weight:700; margin-top:2px;
+  }
+  .tag.i{background:rgba(232,196,104,.15); color:var(--structure); border:1px solid rgba(232,196,104,.35);}
+  .tag.ii{background:rgba(42,111,176,.15); color:#7cb4e6; border:1px solid rgba(124,180,230,.35);}
+
+  .controls{display:flex; flex-direction:column; gap:14px;}
+  .ctrl label{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); display:flex; justify-content:space-between;}
+  .ctrl label span.v{color:var(--text); font-family:'JetBrains Mono',monospace;}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:2px; background:var(--line); margin-top:8px; border-radius:2px;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:12px; height:12px; border-radius:50%;
+    background:var(--structure); cursor:pointer; margin-top:-5px;
+    box-shadow:0 0 0 3px rgba(232,196,104,.15);
+  }
+
+  .presets{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  button{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.04em;
+    background:transparent; color:var(--text); border:1px solid var(--line);
+    padding:9px 10px; cursor:pointer; transition:all .15s ease; text-transform:uppercase;
+  }
+  button:hover{border-color:var(--structure); color:var(--structure);}
+  button.active{background:rgba(232,196,104,.1); border-color:var(--structure); color:var(--structure);}
+  button:focus-visible{outline:2px solid var(--structure); outline-offset:2px;}
+  .full{grid-column:1/-1;}
+
+  .reset-btn{border-color:rgba(255,106,61,.4); color:var(--hot);}
+  .reset-btn:hover{border-color:var(--hot); background:rgba(255,106,61,.08);}
+
+  .start-btn{
+    background:var(--structure); border-color:var(--structure); color:var(--void);
+    font-size:13px; font-weight:700; padding:14px 10px; letter-spacing:.08em;
+  }
+  .start-btn:hover{background:var(--structure); color:var(--void); opacity:.88;}
+  .start-btn:disabled{
+    background:transparent; border-color:var(--line); color:var(--text-dim);
+    cursor:default; opacity:.7;
+  }
+  .start-btn:disabled:hover{background:transparent; opacity:.7;}
+
+  .transport{display:flex; flex-direction:column; gap:8px;}
+  .transport-secondary{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .reset-btn:disabled{border-color:var(--line); color:var(--text-dim); cursor:default; opacity:.5;}
+  .reset-btn:disabled:hover{border-color:var(--line); background:transparent;}
+
+  footer{
+    margin-top:28px; font-size:12px; color:var(--text-dim); line-height:1.7; max-width:780px;
+    font-family:'Newsreader',serif;
+  }
+  footer b{color:var(--text);}
+  .legend{display:flex; gap:22px; margin-top:10px; flex-wrap:wrap;}
+  .legend .li{display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim);}
+  .legend .sw{width:10px;height:10px;border-radius:2px;flex:none;}
+
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(10,13,18,.82);
+    z-index:100; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-box{
+    background:var(--void-2); border:1px solid var(--line); padding:20px;
+    max-width:560px; width:100%; display:flex; flex-direction:column; gap:14px;
+  }
+  #exportTextarea{
+    width:100%; height:220px; resize:vertical; background:#000; color:var(--text);
+    border:1px solid var(--line); font-family:'JetBrains Mono',monospace; font-size:11px;
+    line-height:1.5; padding:10px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span>Gray–Scott simulator / live instrument</div>
+    <h1>A gradient dissipates. Watch whether anything regenerates itself and holds a boundary against it.</h1>
+    <p class="lede">This is a reaction&#8211;diffusion field &#8212; two interacting concentrations relaxing an imposed gradient, the same kind of process Prigogine classified as a dissipative structure. Nothing here is scripted to look alive. Every pattern you see is the field spending its gradient the only way it can. The counter on the right is not decorative: every few frames, it re-applies your own two-condition test &#8212; <b>components actively regenerated, boundary actively maintained</b> &#8212; to the raw pixel field and reports how many regions currently pass.</p>
+  </header>
+
+  <div class="stage">
+    <div class="canvas-pane">
+      <canvas id="sim" width="128" height="128"></canvas>
+      <div class="canvas-caption" id="caption">paused &#8212; pick a preset or adjust feed/kill, then press start.</div>
+      <div class="legend">
+        <div class="li"><span class="sw" style="background:var(--hot)"></span>high gradient (unspent)</div>
+        <div class="li"><span class="sw" style="background:var(--cool)"></span>dissipated / relaxed</div>
+        <div class="li"><span class="sw" style="background:var(--structure)"></span>candidate structure</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="transport">
+        <button id="playPauseBtn" class="start-btn">&#9654; start simulation</button>
+        <div class="transport-secondary">
+          <button id="stopBtn" class="reset-btn" disabled>&#9632; stop</button>
+          <button id="resetBtn" class="reset-btn">&#8635; reset</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="metric-block">
+        <div class="label">Structures satisfying the criterion</div>
+        <div class="metric-big" id="structCount">0</div>
+        <div class="metric-sub" id="structSub">no regenerating, bounded region detected yet</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="criterion">
+        <div class="row"><div class="tag i">i</div><div>Regeneration &#8212; the region's own concentration is being actively rebuilt by the local reaction, not just drifting.</div></div>
+        <div class="row"><div class="tag ii">ii</div><div>Boundary &#8212; a measurable edge is holding against the surrounding field, not blurring into it.</div></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="metric-block">
+        <div class="label">Field statistics</div>
+        <div style="display:flex; gap:18px; margin-top:6px; flex-wrap:wrap;">
+          <div><div class="metric-sub">frame</div><div id="frameCount" style="font-size:16px; color:var(--text);">0</div></div>
+          <div><div class="metric-sub">unspent gradient</div><div id="energyLevel" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+        </div>
+        <div style="display:flex; gap:18px; margin-top:10px; flex-wrap:wrap;">
+          <div><div class="metric-sub">mean turnover (confirmed)</div><div id="turnoverLevel" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+          <div><div class="metric-sub">mean boundary flux (confirmed)</div><div id="fluxLevel" style="font-size:16px; color:var(--text);">&mdash;</div></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="controls">
+        <div class="ctrl">
+          <label>feed rate (gradient resupply) <span class="v" id="fVal">0.0545</span></label>
+          <input type="range" id="fSlider" min="0.020" max="0.080" step="0.0005" value="0.0545">
+        </div>
+        <div class="ctrl">
+          <label>kill rate (dissipation strength) <span class="v" id="kVal">0.0620</span></label>
+          <input type="range" id="kSlider" min="0.040" max="0.075" step="0.0005" value="0.0620">
+        </div>
+      </div>
+
+      <div class="presets">
+        <button data-preset="spots" class="active">spots</button>
+        <button data-preset="worms">worms</button>
+        <button data-preset="mitosis">mitosis</button>
+        <button data-preset="solitons">solitons</button>
+        <button data-preset="chaos" class="full">turbulent (no stable structure)</button>
+        <button id="reseed" class="reset-btn full">reseed field</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabgroup-nav">
+    <button data-tabpanel="lifetime" class="active">structure lifetime</button>
+    <button data-tabpanel="sweep">phase diagram</button>
+  </div>
+
+  <section class="stage tab-panel active" data-tabpanel="lifetime" style="margin-top:1px;">
+    <div class="canvas-pane">
+      <div class="metric-block">
+        <div class="label">Structure lifetime &mdash; current preset</div>
+      </div>
+      <canvas id="lifeHist" width="900" height="160" style="width:100%; height:160px; margin-top:10px; background:#000;"></canvas>
+      <div class="canvas-caption" id="lifeCaption">no completed structures logged yet for this preset.</div>
+    </div>
+    <div class="panel">
+      <div class="metric-block">
+        <div class="label">Sample size</div>
+        <div class="metric-big" id="lifeSampleCount" style="font-size:22px;">0</div>
+      </div>
+      <div class="metric-block">
+        <div class="label">Mean lifetime (frames)</div>
+        <div class="metric-big" id="lifeMeanFrames" style="font-size:22px;">&mdash;</div>
+      </div>
+      <div class="divider"></div>
+      <button id="copyLifeData" class="full">copy data (json)</button>
+      <div class="presets">
+        <button id="exportData">export .json</button>
+        <button id="importData">import .json</button>
+        <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;">
+      </div>
+      <div class="metric-sub" id="importStatus">lifetimes accumulate per preset &mdash; switching presets and back keeps building the same histogram. Export shares/downloads lifetime logs and the current phase-diagram grid as a file, falling back to clipboard if your browser blocks that; import merges a previously exported file back in, so runs from different sessions can be combined and compared.</div>
+    </div>
+  </section>
+
+  <section class="stage tab-panel" data-tabpanel="sweep" style="margin-top:1px;">
+    <div class="canvas-pane">
+      <div class="metric-block">
+        <div class="label">Phase diagram &mdash; F (feed) &times; K (kill)</div>
+      </div>
+      <canvas id="heatmap" width="16" height="16" style="width:100%; height:auto; margin-top:10px; background:#000; image-rendering:pixelated;"></canvas>
+      <div class="canvas-caption" id="heatmapTooltip">run a sweep, then hover the heatmap to read a cell.</div>
+      <div class="legend">
+        <div class="li">x-axis: feed rate F (0.020 &#8594; 0.080)</div>
+        <div class="li">y-axis: kill rate K (0.040 &#8594; 0.075, bottom &#8594; top)</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="metric-block">
+        <div class="label">Run a headless sweep</div>
+        <div class="metric-sub">Simulates every (F,K) cell in a background worker &mdash; the tab stays responsive while it runs.</div>
+      </div>
+      <div class="presets">
+        <button id="resCoarse" class="active">coarse</button>
+        <button id="resFine">fine (slow)</button>
+        <button id="runSweepBtn" class="full reset-btn">run sweep</button>
+      </div>
+      <div id="sweepProgressWrap" style="display:none;">
+        <div style="height:4px; background:var(--line); border-radius:2px; overflow:hidden;">
+          <div id="sweepProgressBar" style="height:100%; width:0%; background:var(--structure);"></div>
+        </div>
+        <div class="metric-sub" id="sweepProgressLabel" style="margin-top:6px;">0 / 0 cells</div>
+      </div>
+      <div class="divider"></div>
+      <div class="presets">
+        <button id="viewCount" class="active">avg count</button>
+        <button id="viewLifetime">avg lifetime</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Under the <b>spots</b> and <b>mitosis</b> presets, watch for regions that split rather than merge &#8212; the closest this field gets to self-reproduction, an autocatalytic set spending gradient by making more of itself. Under <b>turbulent</b>, the gradient is still dissipating just as fast, but nothing regenerates its own boundary long enough to count &#8212; structurally closer to a hurricane than a cell. Neither this simulation nor its detector empirically measures phenomenal experience. Under the paper's account, experience is not an additional property for the detector to find, but the first-person character of world-engaging activity itself. The app makes the structural criterion &#8212; the part that can be operationalized and tested here &#8212; something you can watch happen.
+  </footer>
+
+</div>
+
+<div id="exportModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="metric-block">
+      <div class="label" id="exportModalLabel">Export data</div>
+      <div class="metric-sub">Tap the text below, then use your device's own <b>Copy</b> (long-press &rarr; Select All &rarr; Copy on mobile). Paste it into Notes, Files, or anywhere you want to keep it.</div>
+    </div>
+    <textarea id="exportTextarea" readonly spellcheck="false"></textarea>
+    <button id="exportModalClose" class="full reset-btn">done</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const N = 128; // simulation grid resolution
+  const canvas = document.getElementById('sim');
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(N, N);
+
+  let U = new Float32Array(N*N);
+  let V = new Float32Array(N*N);
+  let U2 = new Float32Array(N*N);
+  let V2 = new Float32Array(N*N);
+
+  const dU = 0.16, dV = 0.08;
+  let F = 0.0545, K = 0.0620;
+
+  function idx(x,y){
+    x = (x+N)%N; y = (y+N)%N;
+    return y*N+x;
+  }
+
+  function seedField(pattern){
+    finalizeAllTracked(); // flush any in-progress structures into the outgoing preset's lifetime log
+    currentPresetKey = pattern;
+    for(let i=0;i<N*N;i++){ U[i]=1; V[i]=0; }
+    function blob(cx,cy,r){
+      for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){
+        if(x*x+y*y<=r*r){
+          const i = idx(cx+x, cy+y);
+          U[i]=0.5 + (Math.random()-0.5)*0.05;
+          V[i]=0.25 + (Math.random()-0.5)*0.05;
+        }
+      }
+    }
+    const n = pattern==='chaos' ? 60 : (pattern==='solitons'?10:22);
+    for(let k=0;k<n;k++){
+      blob(Math.random()*N|0, Math.random()*N|0, pattern==='chaos'?2: (2+Math.random()*3|0));
+    }
+    frame=0;
+    refreshLifetimePanel();
+  }
+
+  const presets = {
+    spots:    {F:0.0545, K:0.0620},
+    worms:    {F:0.0580, K:0.0630},
+    mitosis:  {F:0.0367, K:0.0649},
+    solitons: {F:0.0320, K:0.0635}, // retuned 2026-08: 0.0300/0.0619 sat inside the mitosis-like self-replicating band and split instead of staying particle-like; this pair held stable (round, non-splitting) across 6 seeds x 1500 steps
+    chaos:    {F:0.0260, K:0.0550}
+  };
+
+  function step(subSteps){
+    for(let s=0;s<subSteps;s++){
+      for(let y=0;y<N;y++){
+        for(let x=0;x<N;x++){
+          const i = idx(x,y);
+          const u = U[i], v = V[i];
+          const lapU = U[idx(x-1,y)]+U[idx(x+1,y)]+U[idx(x,y-1)]+U[idx(x,y+1)] - 4*u;
+          const lapV = V[idx(x-1,y)]+V[idx(x+1,y)]+V[idx(x,y-1)]+V[idx(x,y+1)] - 4*v;
+          const uvv = u*v*v;
+          U2[i] = u + (dU*lapU - uvv + F*(1-u));
+          V2[i] = v + (dV*lapV + uvv - (F+K)*v);
+        }
+      }
+      [U,U2]=[U2,U]; [V,V2]=[V2,V];
+    }
+  }
+
+  // --- structural detector: regeneration + boundary, per the paper's criterion ---
+  // detectStructures() finds candidate regions each tick (geometric pre-filter only).
+  // updateTracking() gives each candidate a persistent identity across ticks and is
+  // where the real regeneration (turnover) and boundary (flux) tests are applied.
+  const TURNOVER_THRESH = 0.05;   // fraction of a region's cells that must be "new" each window to count as regenerating
+  const HISTORY_LEN = 4;          // rolling window (in detection ticks) used for turnover/flux consistency checks
+  const MIN_WINDOWS_ALIVE = 5;    // minimum tracked lifetime (in detection ticks) before a match can be confirmed
+  const DETECT_BLUR_RADIUS = 3;   // smoothing applied to a copy of the field before detection only (rendering stays crisp)
+
+  // Coarse-graining pass: a raw per-pixel threshold on the unsmoothed field can't tell a genuinely
+  // held structure apart from turbulence, because at the single-pixel/single-window level they produce
+  // statistically overlapping turnover and boundary-flux readings (verified empirically — see project notes).
+  // Averaging over a small neighborhood first means only structure that's coherent at a few pixels' scale,
+  // not single-frame noise, can ever become a detection candidate.
+  const blurTmp = new Float32Array(N*N);
+  function boxBlurField(src, radius){
+    const out = new Float32Array(N*N);
+    const win = radius*2+1;
+    for(let y=0;y<N;y++){
+      for(let x=0;x<N;x++){
+        let sum = 0;
+        for(let k=-radius;k<=radius;k++) sum += src[idx(x+k,y)];
+        blurTmp[idx(x,y)] = sum/win;
+      }
+    }
+    for(let x=0;x<N;x++){
+      for(let y=0;y<N;y++){
+        let sum = 0;
+        for(let k=-radius;k<=radius;k++) sum += blurTmp[idx(x,y+k)];
+        out[idx(x,y)] = sum/win;
+      }
+    }
+    return out;
+  }
+
+  function detectStructures(frameNo){
+    const field = boxBlurField(V, DETECT_BLUR_RADIUS); // detection runs on the smoothed field; V itself (used for rendering) is untouched
+    const thresh = 0.28;
+    const visited = new Uint8Array(N*N);
+    const blobs = [];
+    for(let y=0;y<N;y++){
+      for(let x=0;x<N;x++){
+        const i = idx(x,y);
+        if(visited[i] || field[i] < thresh) continue;
+        // flood fill (iterative)
+        let stack = [i];
+        visited[i]=1;
+        let area=0, sx=0, sy=0, boundaryCells=0;
+        let fluxSum=0, fluxCount=0;
+        const memberCells = [];
+        while(stack.length){
+          const c = stack.pop();
+          area++;
+          memberCells.push(c);
+          const cx = c % N, cy = (c - cx)/N;
+          sx += cx; sy += cy;
+          const vc = field[c];
+          let isBoundary = false;
+          const neigh = [idx(cx-1,cy), idx(cx+1,cy), idx(cx,cy-1), idx(cx,cy+1)];
+          for(const n of neigh){
+            if(field[n] < thresh){
+              isBoundary = true;
+              fluxSum += (vc - field[n]); // outward concentration gradient across this boundary edge
+              fluxCount++;
+            } else if(!visited[n]){ visited[n]=1; stack.push(n); }
+          }
+          if(isBoundary) boundaryCells++;
+        }
+        if(area >= 5 && area <= 900){
+          const perim = boundaryCells;
+          const compactness = perim>0 ? (area / (perim*perim)) : 0; // cheap pre-filter: discards degenerate slivers
+          if(compactness > 0.03){
+            blobs.push({
+              cx: sx/area, cy: sy/area, area, compactness,
+              cellsSet: new Set(memberCells),
+              boundaryFluxAvg: fluxCount>0 ? fluxSum/fluxCount : 0
+            });
+          }
+        }
+      }
+    }
+    return blobs;
+  }
+
+  function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+  // persistent structure identity across detection ticks
+  let trackedStructures = new Map(); // id -> {cx,cy,area,cellsSet,windowsAlive,bornFrame,turnoverHistory,fluxHistory,meanTurnover,meanFlux}
+  let nextTrackId = 1;
+  let lifetimeLogs = { spots:[], worms:[], mitosis:[], solitons:[], chaos:[] };
+  let currentPresetKey = 'spots';
+
+  function finalizeAllTracked(){
+    const log = lifetimeLogs[currentPresetKey];
+    for(const [,t] of trackedStructures){
+      log.push({ lifetimeWindows: t.windowsAlive, meanTurnover: t.meanTurnover, meanFlux: t.meanFlux });
+    }
+    trackedStructures.clear();
+  }
+
+  function updateTracking(frameNo, blobs){
+    const seenIds = new Set();
+    const confirmed = [];
+    for(const b of blobs){
+      let bestId = null, bestD = Infinity;
+      for(const [id,t] of trackedStructures){
+        if(seenIds.has(id)) continue;
+        const d = Math.hypot(b.cx-t.cx, b.cy-t.cy);
+        if(d < 6 && d < bestD){ bestD = d; bestId = id; }
+      }
+      if(bestId != null){
+        const t = trackedStructures.get(bestId);
+        let novel = 0;
+        for(const c of b.cellsSet){ if(!t.cellsSet.has(c)) novel++; }
+        const turnover = b.area>0 ? novel/b.area : 0;
+        t.turnoverHistory.push(turnover); if(t.turnoverHistory.length > HISTORY_LEN) t.turnoverHistory.shift();
+        t.fluxHistory.push(b.boundaryFluxAvg); if(t.fluxHistory.length > HISTORY_LEN) t.fluxHistory.shift();
+        t.cx=b.cx; t.cy=b.cy; t.area=b.area; t.cellsSet=b.cellsSet; t.windowsAlive++;
+        t.meanTurnover = avg(t.turnoverHistory);
+        t.meanFlux = avg(t.fluxHistory);
+        seenIds.add(bestId);
+
+        // condition (i): material genuinely turning over, not just sitting still
+        const regenOK = t.meanTurnover > TURNOVER_THRESH;
+        // condition (ii): boundary consistently exporting concentration in the same direction, not flickering
+        const signs = t.fluxHistory.map(f => Math.sign(f));
+        const boundaryOK = signs.length >= 2 && signs[0] !== 0 && signs.every(s => s === signs[0]);
+        if(t.windowsAlive >= MIN_WINDOWS_ALIVE && regenOK && boundaryOK){
+          confirmed.push({cx:t.cx, cy:t.cy, area:t.area, meanTurnover:t.meanTurnover, meanFlux:t.meanFlux});
+        }
+      } else {
+        const id = nextTrackId++;
+        trackedStructures.set(id, {
+          cx:b.cx, cy:b.cy, area:b.area, cellsSet:b.cellsSet,
+          windowsAlive:1, bornFrame:frameNo,
+          turnoverHistory:[], fluxHistory:[b.boundaryFluxAvg],
+          meanTurnover:0, meanFlux:b.boundaryFluxAvg
+        });
+        seenIds.add(id);
+      }
+    }
+    // anything not seen this tick has stopped existing — log its finished lifetime
+    const log = lifetimeLogs[currentPresetKey];
+    for(const [id,t] of trackedStructures){
+      if(!seenIds.has(id)){
+        log.push({ lifetimeWindows: t.windowsAlive, meanTurnover: t.meanTurnover, meanFlux: t.meanFlux });
+        trackedStructures.delete(id);
+      }
+    }
+    return confirmed;
+  }
+
+  function render(markedBlobs){
+    const data = imgData.data;
+    for(let i=0;i<N*N;i++){
+      const u = U[i], v = V[i];
+      // base coloring: hot = high U (unspent gradient), cool = low U (dissipated)
+      const t = Math.max(0, Math.min(1, 1-u));
+      // hot rgb(255,106,61) -> cool rgb(42,111,176)
+      let r = 10 + (255-10)*Math.max(0,1-t*1.8);
+      let g = 13 + (111-13)*t;
+      let b = 18 + (176-18)*t;
+      if(v > 0.05){
+        const glow = Math.min(1, v*2.2);
+        r = r*(1-glow) + 232*glow*0.55;
+        g = g*(1-glow) + 196*glow*0.55;
+        b = b*(1-glow) + 104*glow*0.4;
+      }
+      const p = i*4;
+      data[p]=r; data[p+1]=g; data[p+2]=b; data[p+3]=255;
+    }
+    ctx.putImageData(imgData,0,0);
+    // overlay markers for confirmed structures
+    ctx.save();
+    for(const bl of markedBlobs){
+      ctx.strokeStyle = 'rgba(232,196,104,0.9)';
+      ctx.lineWidth = 1.2;
+      const r = Math.max(4, Math.sqrt(bl.area/Math.PI)+2);
+      ctx.beginPath();
+      ctx.arc(bl.cx, bl.cy, r, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const captionEl = document.getElementById('caption');
+  const structCountEl = document.getElementById('structCount');
+  const structSubEl = document.getElementById('structSub');
+  const frameCountEl = document.getElementById('frameCount');
+  const energyEl = document.getElementById('energyLevel');
+  const turnoverEl = document.getElementById('turnoverLevel');
+  const fluxEl = document.getElementById('fluxLevel');
+
+  function updateCaption(count){
+    captionEl.classList.toggle('live', count>0);
+    if(count===0){
+      captionEl.textContent = 'The field is dissipating without regenerating anything that holds its own boundary.';
+    } else if(count===1){
+      captionEl.textContent = 'One region is regenerating its own concentration and holding a boundary against the field.';
+    } else {
+      captionEl.textContent = count + ' distinct regions currently satisfy the criterion, independently of one another.';
+    }
+  }
+
+  // --- Feature 1: persistence logging / lifetime histogram ---
+  const lifeHistCanvas = document.getElementById('lifeHist');
+  const lifeHistCtx = lifeHistCanvas.getContext('2d');
+  const lifeCaptionEl = document.getElementById('lifeCaption');
+  const lifeSampleCountEl = document.getElementById('lifeSampleCount');
+  const lifeMeanFramesEl = document.getElementById('lifeMeanFrames');
+  const LIFE_BUCKETS = [1,2,3,4,5,10,20,Infinity]; // upper bound (inclusive) of each bucket, in windows
+  const LIFE_BUCKET_LABELS = ['1','2','3','4','5','6-10','11-20','20+'];
+
+  function bucketIndexFor(windows){
+    for(let i=0;i<LIFE_BUCKETS.length;i++){ if(windows <= LIFE_BUCKETS[i]) return i; }
+    return LIFE_BUCKETS.length-1;
+  }
+
+  function refreshLifetimePanel(){
+    const log = lifetimeLogs[currentPresetKey];
+    const counts = new Array(LIFE_BUCKETS.length).fill(0);
+    for(const entry of log) counts[bucketIndexFor(entry.lifetimeWindows)]++;
+    const w = lifeHistCanvas.width, h = lifeHistCanvas.height;
+    lifeHistCtx.clearRect(0,0,w,h);
+    lifeHistCtx.fillStyle = '#000'; lifeHistCtx.fillRect(0,0,w,h);
+    const maxCount = Math.max(1, ...counts);
+    const padL=6, padB=20, padT=8, gap=8;
+    const barW = (w - padL*2 - gap*(counts.length-1)) / counts.length;
+    lifeHistCtx.font = '10px JetBrains Mono, monospace';
+    for(let i=0;i<counts.length;i++){
+      const bh = (h-padB-padT) * (counts[i]/maxCount);
+      const bx = padL + i*(barW+gap);
+      const by = h - padB - bh;
+      lifeHistCtx.fillStyle = counts[i]>0 ? '#e8c468' : '#263241';
+      lifeHistCtx.fillRect(bx, by, barW, Math.max(1,bh));
+      lifeHistCtx.fillStyle = '#7c8797';
+      lifeHistCtx.textAlign = 'center';
+      lifeHistCtx.fillText(LIFE_BUCKET_LABELS[i], bx+barW/2, h-6);
+      if(counts[i]>0){
+        lifeHistCtx.fillStyle = '#d7dde5';
+        lifeHistCtx.fillText(String(counts[i]), bx+barW/2, by-4);
+      }
+    }
+    lifeSampleCountEl.textContent = log.length;
+    lifeMeanFramesEl.textContent = log.length ? Math.round(avg(log.map(e=>e.lifetimeWindows))*6) : '—';
+    lifeCaptionEl.textContent = log.length
+      ? log.length + ' completed structure' + (log.length===1?'':'s') + ' logged for ' + currentPresetKey + ' — lifetimes measured in frames from first to last confirmed detection window.'
+      : 'no completed structures logged yet for this preset.';
+  }
+
+  // Clipboard-write and programmatic downloads are both gated APIs that can be
+  // silently blocked (no error, no visible failure) inside an embedded/sandboxed
+  // page — that's exactly what happened here. showExportModal() is the guaranteed
+  // fallback: it relies only on native text selection, which no permissions
+  // policy can block, so "copy" always actually works from here.
+  const exportModalEl = document.getElementById('exportModal');
+  const exportTextareaEl = document.getElementById('exportTextarea');
+  const exportModalLabelEl = document.getElementById('exportModalLabel');
+
+  function showExportModal(json, label){
+    exportModalLabelEl.textContent = label;
+    exportTextareaEl.value = json;
+    exportModalEl.classList.add('open');
+    exportTextareaEl.focus();
+    exportTextareaEl.select();
+  }
+
+  document.getElementById('exportModalClose').addEventListener('click', ()=>{
+    exportModalEl.classList.remove('open');
+  });
+
+  async function tryClipboardCopy(json){
+    try{
+      await navigator.clipboard.writeText(json);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  document.getElementById('copyLifeData').addEventListener('click', async ()=>{
+    const json = JSON.stringify(lifetimeLogs, null, 2);
+    const btn = document.getElementById('copyLifeData');
+    if (await tryClipboardCopy(json)) {
+      const orig = btn.textContent;
+      btn.textContent = 'copied';
+      setTimeout(()=>{ btn.textContent = orig; }, 1200);
+    } else {
+      showExportModal(json, 'Lifetime data (all presets)');
+    }
+  });
+
+  const importStatusEl = document.getElementById('importStatus');
+
+  document.getElementById('exportData').addEventListener('click', async ()=>{
+    const bundle = {
+      exportedAt: new Date().toISOString(),
+      lifetimeLogs: lifetimeLogs,
+      sweepGrid: sweepGrid // null if no sweep has been run yet
+    };
+    const json = JSON.stringify(bundle, null, 2);
+    const filename = 'gradient-field-run-' + Date.now() + '.json';
+    const structCount = Object.values(lifetimeLogs).reduce((n,l)=>n+l.length,0);
+    const summary = structCount + ' logged structures' + (sweepGrid ? ' + phase-diagram grid' : '');
+
+    // navigator.share is the only one of the "automatic" export paths whose
+    // success we can actually trust: it either shows real UI or rejects. A
+    // programmatic <a download> click and navigator.clipboard.writeText can
+    // both silently no-op inside a sandboxed embed with no exception thrown —
+    // that's what happened here — so neither is used to claim success anymore.
+    try {
+      const file = new File([json], filename, {type:'application/json'});
+      if (navigator.canShare && navigator.canShare({files:[file]})) {
+        await navigator.share({files:[file], title: filename});
+        importStatusEl.textContent = 'shared ' + summary + ' as ' + filename + '.';
+        return;
+      }
+    } catch(e){
+      if (e && e.name === 'AbortError') { return; } // user cancelled the share sheet
+    }
+
+    if (await tryClipboardCopy(json)) {
+      importStatusEl.textContent = 'copied ' + summary + ' to the clipboard.';
+    } else {
+      showExportModal(json, 'Export — ' + summary);
+      importStatusEl.textContent = summary + ' — select the text in the box and copy it manually.';
+    }
+  });
+
+  document.getElementById('importData').addEventListener('click', ()=>{
+    document.getElementById('importFileInput').click();
+  });
+
+  document.getElementById('importFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data || typeof data !== 'object' || !data.lifetimeLogs){
+          throw new Error('file does not look like a gradient-field export (missing lifetimeLogs)');
+        }
+        let added = 0;
+        for(const key of Object.keys(lifetimeLogs)){
+          const incoming = Array.isArray(data.lifetimeLogs[key]) ? data.lifetimeLogs[key] : [];
+          lifetimeLogs[key] = lifetimeLogs[key].concat(incoming);
+          added += incoming.length;
+        }
+        if(data.sweepGrid && data.sweepGrid.grid && data.sweepGrid.paramRes){
+          sweepGrid = data.sweepGrid;
+          renderHeatmap();
+        }
+        refreshLifetimePanel();
+        importStatusEl.textContent = 'imported ' + added + ' structures (merged into existing logs)' + (data.sweepGrid ? ' + replaced phase-diagram grid' : '') + ' from ' + file.name + '.';
+      }catch(err){
+        importStatusEl.textContent = 'import failed: ' + err.message;
+      }
+      e.target.value = ''; // allow re-importing the same file later
+    };
+    reader.readAsText(file);
+  });
+
+  let frame = 0;
+  let lastConfirmed = [];
+  let running = false; // true only while the rAF chain is actively stepping — toggled by pause/resume, not just a one-time start latch
+  function loop(){
+    step(6);
+    frame++;
+    if(frame % 6 === 0){
+      const blobs = detectStructures(frame);
+      const confirmed = updateTracking(frame, blobs);
+      lastConfirmed = confirmed;
+      structCountEl.textContent = confirmed.length;
+      structSubEl.textContent = confirmed.length>0
+        ? 'regenerating across consecutive windows, boundary intact'
+        : 'no regenerating, bounded region detected yet';
+      updateCaption(confirmed.length);
+      turnoverEl.textContent = confirmed.length ? (avg(confirmed.map(c=>c.meanTurnover))*100).toFixed(1)+'%' : '—';
+      fluxEl.textContent = confirmed.length ? avg(confirmed.map(c=>c.meanFlux)).toFixed(4) : '—';
+      refreshLifetimePanel();
+    }
+    render(lastConfirmed);
+    frameCountEl.textContent = frame;
+    if(frame % 12 === 0){
+      let sum=0; for(let i=0;i<N*N;i++) sum += U[i];
+      const avgU = sum/(N*N);
+      energyEl.textContent = (avgU*100).toFixed(1) + '%';
+    }
+    // only keep the rAF chain alive while actually running — pause/stop flip
+    // `running` false, which lets this in-flight callback be the last one
+    if (running) requestAnimationFrame(loop);
+  }
+
+  // controls
+  const fSlider = document.getElementById('fSlider');
+  const kSlider = document.getElementById('kSlider');
+  const fVal = document.getElementById('fVal');
+  const kVal = document.getElementById('kVal');
+  fSlider.addEventListener('input', ()=>{ F=parseFloat(fSlider.value); fVal.textContent=F.toFixed(4); clearActivePreset(); });
+  kSlider.addEventListener('input', ()=>{ K=parseFloat(kSlider.value); kVal.textContent=K.toFixed(4); clearActivePreset(); });
+
+  function clearActivePreset(){
+    document.querySelectorAll('.presets button[data-preset]').forEach(b=>b.classList.remove('active'));
+  }
+
+  document.querySelectorAll('.presets button[data-preset]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = presets[btn.dataset.preset];
+      F = p.F; K = p.K;
+      fSlider.value = F; kSlider.value = K;
+      fVal.textContent = F.toFixed(4); kVal.textContent = K.toFixed(4);
+      clearActivePreset(); btn.classList.add('active');
+      seedField(btn.dataset.preset);
+      lastConfirmed = [];
+      if (!running) render(lastConfirmed); // preview the new seed immediately while paused; loop() repaints on its own once running
+    });
+  });
+
+  document.getElementById('reseed').addEventListener('click', ()=>{
+    const active = document.querySelector('.presets button.active');
+    seedField(active ? active.dataset.preset : 'spots');
+    lastConfirmed = [];
+    if (!running) render(lastConfirmed);
+  });
+
+  // mobile-width tabs: lifetime / phase-diagram sections swap instead of stacking, to cut scrolling
+  document.querySelectorAll('.tabgroup-nav button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tabgroup-nav button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      document.querySelector('.tab-panel[data-tabpanel="'+btn.dataset.tabpanel+'"]').classList.add('active');
+    });
+  });
+
+  // --- Feature 2: headless F/K phase-diagram sweep, run in a Web Worker ---
+  // Self-contained copy of the sim/detector/tracker above — a worker has no access
+  // to this closure's scope, and inlining via Blob keeps the project a single file.
+  const SWEEP_WORKER_SRC = [
+    'self.onmessage = function(e){',
+    '  var cfg = e.data;',
+    '  var N = cfg.N, paramRes = cfg.paramRes;',
+    '  var warmupSteps = cfg.warmupSteps, measureSteps = cfg.measureSteps;',
+    '  var fRange = cfg.fRange, kRange = cfg.kRange;',
+    '  var dU = 0.16, dV = 0.08;',
+    '  function idx(x,y){ x=(x+N)%N; y=(y+N)%N; return y*N+x; }',
+    '  function avg(arr){ return arr.length ? arr.reduce(function(a,b){return a+b;},0)/arr.length : 0; }',
+    '',
+    '  function runCell(F,K){',
+    '    var U=new Float32Array(N*N), V=new Float32Array(N*N);',
+    '    var U2=new Float32Array(N*N), V2=new Float32Array(N*N);',
+    '    for(var i=0;i<N*N;i++){ U[i]=1; V[i]=0; }',
+    '    function blob(cx,cy,r){',
+    '      for(var y=-r;y<=r;y++){ for(var x=-r;x<=r;x++){',
+    '        if(x*x+y*y<=r*r){',
+    '          var i2=idx(cx+x,cy+y);',
+    '          U[i2]=0.5+(Math.random()-0.5)*0.05;',
+    '          V[i2]=0.25+(Math.random()-0.5)*0.05;',
+    '        }',
+    '      } }',
+    '    }',
+    '    for(var k=0;k<18;k++){ blob((Math.random()*N)|0,(Math.random()*N)|0, 2+((Math.random()*3)|0)); }',
+    '',
+    '    function step(){',
+    '      for(var y=0;y<N;y++){',
+    '        for(var x=0;x<N;x++){',
+    '          var i3=idx(x,y);',
+    '          var u=U[i3], v=V[i3];',
+    '          var lapU = U[idx(x-1,y)]+U[idx(x+1,y)]+U[idx(x,y-1)]+U[idx(x,y+1)] - 4*u;',
+    '          var lapV = V[idx(x-1,y)]+V[idx(x+1,y)]+V[idx(x,y-1)]+V[idx(x,y+1)] - 4*v;',
+    '          var uvv = u*v*v;',
+    '          U2[i3]=u+(dU*lapU-uvv+F*(1-u));',
+    '          V2[i3]=v+(dV*lapV+uvv-(F+K)*v);',
+    '        }',
+    '      }',
+    '      var t=U; U=U2; U2=t; t=V; V=V2; V2=t;',
+    '    }',
+    '',
+    '    var blurTmp = new Float32Array(N*N);',
+    '    function boxBlurField(src, radius){',
+    '      var out = new Float32Array(N*N);',
+    '      var win = radius*2+1;',
+    '      for(var y=0;y<N;y++){ for(var x=0;x<N;x++){',
+    '        var sum=0; for(var k=-radius;k<=radius;k++) sum += src[idx(x+k,y)];',
+    '        blurTmp[idx(x,y)] = sum/win;',
+    '      } }',
+    '      for(var x2=0;x2<N;x2++){ for(var y2=0;y2<N;y2++){',
+    '        var sum2=0; for(var k2=-radius;k2<=radius;k2++) sum2 += blurTmp[idx(x2,y2+k2)];',
+    '        out[idx(x2,y2)] = sum2/win;',
+    '      } }',
+    '      return out;',
+    '    }',
+    '',
+    '    function detect(){',
+    '      var field = boxBlurField(V, 3);', // same coarse-graining radius as the live detector, so the sweep matches live behavior
+    '      var thresh=0.28;',
+    '      var visited=new Uint8Array(N*N);',
+    '      var blobs=[];',
+    '      var maxArea = Math.max(5, (N*N*0.06)|0);',
+    '      for(var y=0;y<N;y++){',
+    '        for(var x=0;x<N;x++){',
+    '          var i4=idx(x,y);',
+    '          if(visited[i4]||field[i4]<thresh) continue;',
+    '          var stack=[i4]; visited[i4]=1;',
+    '          var area=0,sx=0,sy=0,boundaryCells=0,fluxSum=0,fluxCount=0;',
+    '          var memberCells=[];',
+    '          while(stack.length){',
+    '            var c=stack.pop(); area++; memberCells.push(c);',
+    '            var cx=c%N, cy=(c-cx)/N;',
+    '            sx+=cx; sy+=cy;',
+    '            var vc=field[c];',
+    '            var isBoundary=false;',
+    '            var neigh=[idx(cx-1,cy),idx(cx+1,cy),idx(cx,cy-1),idx(cx,cy+1)];',
+    '            for(var ni=0; ni<4; ni++){',
+    '              var n=neigh[ni];',
+    '              if(field[n]<thresh){ isBoundary=true; fluxSum+=(vc-field[n]); fluxCount++; }',
+    '              else if(!visited[n]){ visited[n]=1; stack.push(n); }',
+    '            }',
+    '            if(isBoundary) boundaryCells++;',
+    '          }',
+    '          if(area>=3 && area<=maxArea){',
+    '            var perim=boundaryCells;',
+    '            var compactness = perim>0 ? (area/(perim*perim)) : 0;',
+    '            if(compactness>0.03){',
+    '              blobs.push({cx:sx/area, cy:sy/area, area:area, cellsSet:new Set(memberCells), boundaryFluxAvg: fluxCount>0?fluxSum/fluxCount:0});',
+    '            }',
+    '          }',
+    '        }',
+    '      }',
+    '      return blobs;',
+    '    }',
+    '',
+    '    var tracked = new Map(); var nextId=1;',
+    '    var TURNOVER_THRESH=0.05, HISTORY_LEN=4, MIN_WINDOWS_ALIVE=5;',
+    '    var lifetimes=[];',
+    '    function updateTracking(blobs){',
+    '      var seen=new Set();',
+    '      var confirmedCount=0;',
+    '      for(var bi=0; bi<blobs.length; bi++){',
+    '        var b=blobs[bi];',
+    '        var bestId=null,bestD=Infinity;',
+    '        tracked.forEach(function(t,id){',
+    '          if(seen.has(id)) return;',
+    '          var d=Math.hypot(b.cx-t.cx,b.cy-t.cy);',
+    '          if(d<6 && d<bestD){ bestD=d; bestId=id; }',
+    '        });',
+    '        if(bestId!=null){',
+    '          var t=tracked.get(bestId);',
+    '          var novel=0;',
+    '          b.cellsSet.forEach(function(c){ if(!t.cellsSet.has(c)) novel++; });',
+    '          var turnover = b.area>0? novel/b.area : 0;',
+    '          t.turnoverHistory.push(turnover); if(t.turnoverHistory.length>HISTORY_LEN) t.turnoverHistory.shift();',
+    '          t.fluxHistory.push(b.boundaryFluxAvg); if(t.fluxHistory.length>HISTORY_LEN) t.fluxHistory.shift();',
+    '          t.cx=b.cx; t.cy=b.cy; t.area=b.area; t.cellsSet=b.cellsSet; t.windowsAlive++;',
+    '          var meanTurnover=avg(t.turnoverHistory);',
+    '          var signs=t.fluxHistory.map(function(f){ return Math.sign(f); });',
+    '          var boundaryOK = signs.length>=2 && signs[0]!==0 && signs.every(function(s){ return s===signs[0]; });',
+    '          seen.add(bestId);',
+    '          if(t.windowsAlive>=MIN_WINDOWS_ALIVE && meanTurnover>TURNOVER_THRESH && boundaryOK) confirmedCount++;',
+    '        } else {',
+    '          var id2=nextId++;',
+    '          tracked.set(id2,{cx:b.cx,cy:b.cy,area:b.area,cellsSet:b.cellsSet,windowsAlive:1,turnoverHistory:[],fluxHistory:[b.boundaryFluxAvg]});',
+    '          seen.add(id2);',
+    '        }',
+    '      }',
+    '      var toDrop=[];',
+    '      tracked.forEach(function(t,id){ if(!seen.has(id)){ lifetimes.push(t.windowsAlive); toDrop.push(id); } });',
+    '      for(var di=0; di<toDrop.length; di++) tracked.delete(toDrop[di]);',
+    '      return confirmedCount;',
+    '    }',
+    '',
+    '    var counts=[];',
+    '    var tick=0;',
+    '    var totalSteps = warmupSteps+measureSteps;',
+    '    for(var s=0;s<totalSteps;s++){',
+    '      step(); tick++;',
+    '      if(tick%6===0){',
+    '        var blobs2=detect();',
+    '        var c=updateTracking(blobs2);',
+    '        if(s>=warmupSteps) counts.push(c);',
+    '      }',
+    '    }',
+    '    tracked.forEach(function(t){ lifetimes.push(t.windowsAlive); });',
+    '    return { avgCount: avg(counts), avgLifetimeFrames: avg(lifetimes)*6 };',
+    '  }',
+    '',
+    '  var fLo=fRange[0], fHi=fRange[1], kLo=kRange[0], kHi=kRange[1];',
+    '  var grid = new Array(paramRes*paramRes);',
+    '  var done=0, total=paramRes*paramRes;',
+    '  for(var ky=0; ky<paramRes; ky++){',
+    '    for(var kx=0; kx<paramRes; kx++){',
+    '      var F = fLo + (fHi-fLo) * (kx/(paramRes-1));',
+    '      var K = kLo + (kHi-kLo) * (ky/(paramRes-1));',
+    '      var r = runCell(F,K);',
+    '      grid[ky*paramRes+kx] = { F:F, K:K, avgCount:r.avgCount, avgLifetimeFrames:r.avgLifetimeFrames };',
+    '      done++;',
+    '      if(done % 4 === 0 || done===total){ self.postMessage({type:"progress", done:done, total:total}); }',
+    '    }',
+    '  }',
+    '  self.postMessage({type:"done", grid:grid, paramRes:paramRes});',
+    '};'
+  ].join('\n');
+
+  const SWEEP_F_RANGE = [0.020, 0.080];
+  const SWEEP_K_RANGE = [0.040, 0.075];
+  const SWEEP_RESOLUTIONS = {
+    coarse: {paramRes:16, N:40, warmupSteps:250, measureSteps:550},
+    fine:   {paramRes:28, N:56, warmupSteps:400, measureSteps:900}
+  };
+  let sweepResolution = 'coarse';
+  let sweepViewMode = 'count';
+  let sweepGrid = null;
+  let sweepWorker = null;
+
+  const heatmapCanvas = document.getElementById('heatmap');
+  const heatmapCtx = heatmapCanvas.getContext('2d');
+  const heatmapTooltipEl = document.getElementById('heatmapTooltip');
+  const runSweepBtn = document.getElementById('runSweepBtn');
+  const sweepProgressWrap = document.getElementById('sweepProgressWrap');
+  const sweepProgressBar = document.getElementById('sweepProgressBar');
+  const sweepProgressLabel = document.getElementById('sweepProgressLabel');
+
+  function renderHeatmap(){
+    if(!sweepGrid) return;
+    const {grid, paramRes} = sweepGrid;
+    heatmapCanvas.width = paramRes; heatmapCanvas.height = paramRes;
+    const img = heatmapCtx.createImageData(paramRes, paramRes);
+    let maxVal = 0.001;
+    for(const cell of grid){
+      const v = sweepViewMode==='count' ? cell.avgCount : cell.avgLifetimeFrames;
+      if(v > maxVal) maxVal = v;
+    }
+    for(let ky=0; ky<paramRes; ky++){
+      for(let kx=0; kx<paramRes; kx++){
+        const cell = grid[ky*paramRes+kx];
+        const v = sweepViewMode==='count' ? cell.avgCount : cell.avgLifetimeFrames;
+        const t = Math.max(0, Math.min(1, v/maxVal));
+        const r = Math.round(16 + (232-16)*t);
+        const g = Math.round(21 + (196-21)*t);
+        const b = Math.round(30 + (104-30)*t);
+        const py = paramRes-1-ky; // K increases upward on screen
+        const p = (py*paramRes + kx)*4;
+        img.data[p]=r; img.data[p+1]=g; img.data[p+2]=b; img.data[p+3]=255;
+      }
+    }
+    heatmapCtx.putImageData(img,0,0);
+  }
+
+  heatmapCanvas.addEventListener('mousemove', (e)=>{
+    if(!sweepGrid) return;
+    const {grid, paramRes} = sweepGrid;
+    const rect = heatmapCanvas.getBoundingClientRect();
+    const fx = (e.clientX-rect.left)/rect.width;
+    const fy = (e.clientY-rect.top)/rect.height;
+    const kx = Math.min(paramRes-1, Math.max(0, Math.floor(fx*paramRes)));
+    const kyFromTop = Math.min(paramRes-1, Math.max(0, Math.floor(fy*paramRes)));
+    const ky = paramRes-1-kyFromTop;
+    const cell = grid[ky*paramRes+kx];
+    if(!cell) return;
+    heatmapTooltipEl.textContent = 'F='+cell.F.toFixed(4)+'  K='+cell.K.toFixed(4)+'   avg count='+cell.avgCount.toFixed(1)+'   avg lifetime='+cell.avgLifetimeFrames.toFixed(0)+'f';
+  });
+
+  document.getElementById('resCoarse').addEventListener('click', ()=>{
+    sweepResolution='coarse';
+    document.getElementById('resCoarse').classList.add('active');
+    document.getElementById('resFine').classList.remove('active');
+  });
+  document.getElementById('resFine').addEventListener('click', ()=>{
+    sweepResolution='fine';
+    document.getElementById('resFine').classList.add('active');
+    document.getElementById('resCoarse').classList.remove('active');
+  });
+  document.getElementById('viewCount').addEventListener('click', ()=>{
+    sweepViewMode='count';
+    document.getElementById('viewCount').classList.add('active');
+    document.getElementById('viewLifetime').classList.remove('active');
+    renderHeatmap();
+  });
+  document.getElementById('viewLifetime').addEventListener('click', ()=>{
+    sweepViewMode='lifetime';
+    document.getElementById('viewLifetime').classList.add('active');
+    document.getElementById('viewCount').classList.remove('active');
+    renderHeatmap();
+  });
+
+  runSweepBtn.addEventListener('click', ()=>{
+    if(sweepWorker) sweepWorker.terminate();
+    const cfg = Object.assign({fRange:SWEEP_F_RANGE, kRange:SWEEP_K_RANGE}, SWEEP_RESOLUTIONS[sweepResolution]);
+    const workerBlob = new Blob([SWEEP_WORKER_SRC], {type:'application/javascript'});
+    sweepWorker = new Worker(URL.createObjectURL(workerBlob));
+    sweepProgressWrap.style.display='block';
+    sweepProgressBar.style.width='0%';
+    sweepProgressLabel.textContent = '0 / ' + (cfg.paramRes*cfg.paramRes) + ' cells';
+    runSweepBtn.disabled = true;
+    runSweepBtn.textContent = 'running…';
+    sweepWorker.onmessage = (e)=>{
+      if(e.data.type==='progress'){
+        const pct = Math.round(100*e.data.done/e.data.total);
+        sweepProgressBar.style.width = pct+'%';
+        sweepProgressLabel.textContent = e.data.done + ' / ' + e.data.total + ' cells';
+      } else if(e.data.type==='done'){
+        sweepGrid = { grid: e.data.grid, paramRes: e.data.paramRes };
+        renderHeatmap();
+        runSweepBtn.disabled = false;
+        runSweepBtn.textContent = 'run sweep';
+        sweepProgressLabel.textContent = 'done — ' + e.data.grid.length + ' cells';
+      }
+    };
+    sweepWorker.postMessage(cfg);
+  });
+
+  // Paused on load: seed and draw one static frame so there's something to look
+  // at while adjusting settings, but don't start stepping/detecting until the
+  // user presses start — this is the actual point of the transport controls below.
+  seedField('spots');
+  render(lastConfirmed);
+
+  const playPauseBtn = document.getElementById('playPauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  playPauseBtn.addEventListener('click', ()=>{
+    if (!running) {
+      running = true;
+      playPauseBtn.textContent = '⏸ pause';
+      stopBtn.disabled = false;
+      loop();
+    } else {
+      running = false; // the already-queued rAF callback still fires once, sees running=false, and stops rescheduling itself
+      playPauseBtn.textContent = '▶ resume';
+    }
+  });
+
+  // Stop: ends the run and flushes any in-progress structures into the lifetime
+  // log immediately (rather than leaving them "in progress" until the next
+  // preset switch or reset), but leaves the field frozen as-is for inspection —
+  // unlike reset, it does not reseed.
+  stopBtn.addEventListener('click', ()=>{
+    running = false;
+    finalizeAllTracked();
+    lastConfirmed = [];
+    refreshLifetimePanel();
+    render(lastConfirmed);
+    playPauseBtn.textContent = '▶ start simulation';
+    stopBtn.disabled = true;
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    running = false;
+    const active = document.querySelector('.presets button.active');
+    seedField(active ? active.dataset.preset : 'spots');
+    lastConfirmed = [];
+    render(lastConfirmed);
+    playPauseBtn.textContent = '▶ start simulation';
+    stopBtn.disabled = true;
+  });
+})();
+</script>
+</body>
+</html>
